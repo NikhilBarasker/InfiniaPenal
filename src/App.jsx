@@ -13,8 +13,8 @@ export default function App() {
   // Use useRef to keep the token across renders
   const tokenRef = useRef(sessionStorage.getItem("token"));
   const navigate = useNavigate();
-  // const baseUrl = "http://localhost:8080";
-  const baseUrl = "https://infinia-kappa.vercel.app";
+  const baseUrl = "http://localhost:8080";
+  // const baseUrl = "https://infinia-kappa.vercel.app";
 
   useEffect(() => {
     // Check if the session has an existing token

@@ -9,9 +9,6 @@ const uploadToCloudinary = async (file) => {
   formData.append("upload_preset", "myCloud");
   formData.append("cloud_name", "dnevtbn0x");
 
-  // const baseUrl = 'https://infinia-backend.onrender.com/claymagix'
-  const baseUrl = "http://localhost:5173/8080";
-
   try {
     const response = await axios.post(
       "https://api.cloudinary.com/v1_1/dnevtbn0x/image/upload",
@@ -25,21 +22,69 @@ const uploadToCloudinary = async (file) => {
 };
 
 const Claymagix = () => {
+  const baseUrl = "http://localhost:8080/claymagix";
   const navigate = useNavigate();
   const [formState, setFormState] = useState({
     title: "",
     title2: "",
-    background: "", // Background image
-    heading: "",
-    paragraph: "",
-    points: [""],
+    background: "",
+    paragraphs: [""],
+    sections: [
+      {
+        heading: "",
+        points: [""],
+      },
+    ],
     images: [""],
   });
-  const [entries, setEntries] = useState([]);
   const [editingId, setEditingId] = useState(null);
 
-  // Define baseUrl here
-  const baseUrl = "http://localhost:8080";
+  const handleAddSection = () => {
+    setFormState((prevState) => ({
+      ...prevState,
+      sections: [...prevState.sections, { heading: "", points: [""] }],
+    }));
+  };
+
+  const handleRemoveSection = (index) => {
+    setFormState((prevState) => {
+      const newSections = [...prevState.sections];
+      newSections.splice(index, 1);
+      return { ...prevState, sections: newSections };
+    });
+  };
+
+  const handleHeadingChange = (index, value) => {
+    setFormState((prevState) => {
+      const newSections = [...prevState.sections];
+      newSections[index].heading = value;
+      return { ...prevState, sections: newSections };
+    });
+  };
+
+  const handlePointChange = (sectionIndex, pointIndex, value) => {
+    setFormState((prevState) => {
+      const newSections = [...prevState.sections];
+      newSections[sectionIndex].points[pointIndex] = value;
+      return { ...prevState, sections: newSections };
+    });
+  };
+
+  const handleAddPoint = (sectionIndex) => {
+    setFormState((prevState) => {
+      const newSections = [...prevState.sections];
+      newSections[sectionIndex].points.push("");
+      return { ...prevState, sections: newSections };
+    });
+  };
+
+  const handleRemovePoint = (sectionIndex, pointIndex) => {
+    setFormState((prevState) => {
+      const newSections = [...prevState.sections];
+      newSections[sectionIndex].points.splice(pointIndex, 1);
+      return { ...prevState, sections: newSections };
+    });
+  };
 
   const handleFileChange = async (e, fieldName, index = null) => {
     const file = e.target.files[0];
@@ -77,105 +122,74 @@ const Claymagix = () => {
     });
   };
 
-  const handlePointChange = (index, value) => {
-    setFormState((prevState) => {
-      const newPoints = [...prevState.points];
-      newPoints[index] = value;
-      return { ...prevState, points: newPoints };
-    });
-  };
-
-  const handleAddPoint = () => {
-    setFormState((prevState) => ({
-      ...prevState,
-      points: [...prevState.points, ""],
-    }));
-  };
-
-  const handleRemovePoint = (index) => {
-    setFormState((prevState) => {
-      const newPoints = [...prevState.points];
-      newPoints.splice(index, 1);
-      return { ...prevState, points: newPoints };
-    });
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     const updatedFormState = {
       ...formState,
-      info: {
-        heading: formState.heading,
-        points: formState.points,
-      },
+      sections: formState.sections.map((section) => ({
+        heading: section.heading,
+        points: section.points,
+      })),
     };
-
-    // Log the updated form state for debugging
-    console.log("Form Data:", updatedFormState);
 
     try {
       if (editingId) {
         await axios.patch(
-          `${baseUrl}/claymagix/updateclamagix/${editingId}`,
+          `${baseUrl}/updateclaymagix/${editingId}`,
           updatedFormState
         );
+         console.log(`Data delivered to backend ${updatedFormState}`);
         toast.success("Entry updated successfully");
-      } else {
+      } else {  
         await axios.post(`${baseUrl}/addclaymagix`, updatedFormState);
         toast.success("Entry created successfully");
       }
+
       setFormState({
         title: "",
         title2: "",
         background: "",
-        heading: "",
-        paragraph: "",
-        points: [""],
+        paragraphs: [""],
+        sections: [{ heading: "", points: [""] }],
         images: [""],
       });
       setEditingId(null);
       fetchData();
     } catch (error) {
-      console.log(`Occured error while handling submit ${error}`);
       toast.error("Error submitting form");
+      console.error("Error submitting form: ", error);
     }
   };
 
-  const fetchData = async () => {
-    try {
-      const response = await axios.get(`${baseUrl}/getclaymagix`);
-      setEntries(response.data);
-    } catch (error) {
-      toast.error("Error fetching entries");
-    }
-  };
+ const fetchData = async () => {
+   try {
+     const response = await axios.get(`${baseUrl}/`);
+     const data = response.data.data[0];
+     console.log("Fetched Data:", data); 
+
+     if (data) {
+       setFormState({
+         title: data.title,
+         title2: data.title2,
+         background: data.bgimage,
+         paragraphs: [data.para || ""],
+         sections: data.info || [{ heading: "", points: [""] }], 
+         images: data.images || [""],
+       });
+       setEditingId(data._id);
+     } else {
+       toast.error("No data found");
+     }
+   } catch (error) {
+     console.error("Error fetching data: ", error);
+     toast.error("Error fetching entries");
+   }
+ };
+
 
   useEffect(() => {
     fetchData();
   }, []);
-
-  const handleEdit = (entry) => {
-    setFormState({
-      title: entry.title,
-      title2: entry.title2,
-      background: entry.bgimage,
-      heading: entry.info?.heading,
-      paragraph: entry.para,
-      points: entry.info?.points || [""],
-      images: entry.images || [""],
-    });
-    setEditingId(entry._id);
-  };
-
-  const handleDelete = async (id) => {
-    try {
-      await axios.delete(`${baseUrl}/claymagix/${id}`);
-      toast.success("Entry deleted successfully");
-      fetchData();
-    } catch (error) {
-      toast.error("Error deleting entry");
-    }
-  };
 
   const navigateBack = () => {
     navigate(-1);
@@ -227,7 +241,7 @@ const Claymagix = () => {
             <input
               type="file"
               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              onChange={(e) => handleFileChange(e, "background")} // Handle background image
+              onChange={(e) => handleFileChange(e, "background")}
             />
           </div>
 
@@ -237,54 +251,11 @@ const Claymagix = () => {
             </label>
             <textarea
               className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={formState.paragraph}
+              value={formState.paragraphs[0] || ""}
               onChange={(e) =>
-                setFormState({ ...formState, paragraph: e.target.value })
+                setFormState({ ...formState, paragraphs: [e.target.value] })
               }
             />
-          </div>
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-1">
-              Heading
-            </label>
-            <input
-              type="text"
-              className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-              value={formState.heading}
-              onChange={(e) =>
-                setFormState({ ...formState, heading: e.target.value })
-              }
-            />
-          </div>
-
-          <div className="mb-4">
-            <label className="block text-gray-700 font-medium mb-1">
-              Points
-            </label>
-            {formState.points.map((point, index) => (
-              <div key={index} className="flex mb-2">
-                <input
-                  type="text"
-                  className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  value={point}
-                  onChange={(e) => handlePointChange(index, e.target.value)}
-                />
-                <button
-                  type="button"
-                  className="ml-2 text-red-500"
-                  onClick={() => handleRemovePoint(index)}
-                >
-                  Remove
-                </button>
-              </div>
-            ))}
-            <button
-              type="button"
-              className="mt-2 text-blue-500"
-              onClick={handleAddPoint}
-            >
-              Add Point
-            </button>
           </div>
 
           <div className="mb-4">
@@ -296,7 +267,7 @@ const Claymagix = () => {
                 <input
                   type="file"
                   className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  onChange={(e) => handleFileChange(e, "images", index)} // Handle image file uploads
+                  onChange={(e) => handleFileChange(e, "images", index)}
                 />
                 <button
                   type="button"
@@ -316,41 +287,81 @@ const Claymagix = () => {
             </button>
           </div>
 
-          <button
-            type="submit"
-            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600 transition"
-          >
-            {editingId ? "Update" : "Submit"}
-          </button>
-        </form>
+          {formState.sections.map((section, sectionIndex) => (
+            <div key={sectionIndex} className="mb-4">
+              <label className="block text-gray-700 font-medium mb-1">
+                Heading
+              </label>
+              <input
+                type="text"
+                className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                value={section.heading}
+                onChange={(e) =>
+                  handleHeadingChange(sectionIndex, e.target.value)
+                }
+              />
 
-        <div className="mt-8">
-          <h2 className="text-xl font-bold mb-4">Entries</h2>
-          {entries.map((entry) => (
-            <div
-              key={entry._id}
-              className="mb-4 p-4 border border-gray-300 rounded-lg"
-            >
-              <h3 className="text-lg font-semibold">{entry.title}</h3>
+              <label className="block text-gray-700 font-medium mb-1">
+                Points
+              </label>
+              {section.points.map((point, pointIndex) => (
+                <div key={pointIndex} className="flex mb-2">
+                  <input
+                    type="text"
+                    className="w-full p-2 border border-gray-300 rounded focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    value={point}
+                    onChange={(e) =>
+                      handlePointChange(
+                        sectionIndex,
+                        pointIndex,
+                        e.target.value
+                      )
+                    }
+                  />
+                  <button
+                    type="button"
+                    className="ml-2 text-red-500"
+                    onClick={() => handleRemovePoint(sectionIndex, pointIndex)}
+                  >
+                    Remove
+                  </button>
+                </div>
+              ))}
               <button
-                className="mr-2 text-blue-500"
-                onClick={() => handleEdit(entry)}
+                type="button"
+                className="mt-2 text-blue-500"
+                onClick={() => handleAddPoint(sectionIndex)}
               >
-                Edit
+                Add Point
               </button>
+
               <button
-                className="text-red-500"
-                onClick={() => handleDelete(entry._id)}
+                type="button"
+                className="mt-2 text-red-500"
+                onClick={() => handleRemoveSection(sectionIndex)}
               >
-                Delete
+                Remove Section
               </button>
             </div>
           ))}
-        </div>
+          <button
+            type="button"
+            className="mt-2 text-blue-500"
+            onClick={handleAddSection}
+          >
+            Add Section
+          </button>
+
+          <button
+            type="submit"
+            className="w-full bg-blue-500 text-white p-2 rounded hover:bg-blue-600"
+          >
+            {editingId ? "Update" : "Create"} Entry
+          </button>
+        </form>
       </div>
     </div>
   );
 };
-
 
 export default Claymagix;
